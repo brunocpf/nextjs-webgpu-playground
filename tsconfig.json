@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": ["dom", "dom.iterable", "esnext", "DOM.Iterable"],
+    "types": ["@webgpu/types"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
