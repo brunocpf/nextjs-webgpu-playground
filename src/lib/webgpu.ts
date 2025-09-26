@@ -1,3 +1,5 @@
+import { align } from "./utils";
+
 export type WebGpuContext = {
   adapter: GPUAdapter;
   device: GPUDevice;
@@ -15,7 +17,7 @@ export async function initWebGPU(
   if (!adapter) throw new Error("No GPU adapter found.");
 
   const supported = adapter.features;
-  const features = requestedFeatures.filter(supported.has);
+  const features = requestedFeatures.filter((f) => supported.has(f));
 
   const device = await adapter.requestDevice({ requiredFeatures: features });
   return {
@@ -36,6 +38,7 @@ export function makeBuffer(
     usage,
     mappedAtCreation: !!data,
   });
+
   if (data) {
     const write = buffer.getMappedRange();
     new Uint8Array(write).set(
@@ -44,9 +47,4 @@ export function makeBuffer(
     buffer.unmap();
   }
   return buffer;
-}
-
-// WebGPU copy alignment helper
-export function align(n: number, to = 4) {
-  return Math.ceil(n / to) * to;
 }

@@ -2,12 +2,13 @@
 
 import { useRef, useState } from "react";
 
-import { GpuGate } from "@/components/gpu-gate";
 import { ComputeJob } from "@/lib/compute";
 import { RenderJob, resizeCanvasToDisplay } from "@/lib/render";
-import { align, makeBuffer } from "@/lib/webgpu";
+import { align } from "@/lib/utils";
+import { makeBuffer } from "@/lib/webgpu";
 
 import { GpuCanvasUniform } from "./gpu-canvas";
+import { useGpu } from "./gpu-provider";
 
 export interface PlaygroundProps {
   compWgsl?: string;
@@ -22,6 +23,8 @@ export default function Playground({
   compTexWgsl,
   fragTexWgsl,
 }: PlaygroundProps) {
+  const { device } = useGpu();
+
   // State for the three panels
   const [wgslCompute, setWgslCompute] = useState<string>(
     compWgsl ?? DEFAULT_COMP,
@@ -51,273 +54,265 @@ export default function Playground({
   const texSamplerRef = useRef<GPUSampler | null>(null);
   const storageTexRef = useRef<GPUTexture | null>(null);
 
+  if (!device) {
+    return <div>Initializing WebGPU...</div>;
+  }
+
   return (
-    <GpuGate>
-      {({ device }) => (
-        <div
-          style={{
-            maxWidth: 1150,
-            margin: "24px auto",
-            padding: 16,
-            display: "grid",
-            gap: 20,
-          }}
-        >
-          <h1 style={{ margin: 0 }}>
-            WebGPU Compute + Fragment + Compute→Texture
-          </h1>
+    <div
+      style={{
+        maxWidth: 1150,
+        margin: "24px auto",
+        padding: 16,
+        display: "grid",
+        gap: 20,
+      }}
+    >
+      <h1 style={{ margin: 0 }}>WebGPU Compute + Fragment + Compute→Texture</h1>
 
-          {/* FRAGMENT (uniforms) */}
-          <section style={sectionStyle}>
-            <div>
-              <h2 style={h2}>1) Fragment (uniforms)</h2>
-              <p style={hint}>
-                Uniforms: <code>U.time.x</code> (seconds),{" "}
-                <code>U.time.yz</code> (mouse px), <code>U.res.xy</code>{" "}
-                (width/height px). Entry: <code>fmain</code>.
-              </p>
-              <textarea
-                spellCheck={false}
-                value={wgslFragmentUniform}
-                onChange={(e) => setWgslFragmentUniform(e.target.value)}
-                style={TA}
-              />
-              <GpuCanvasUniform
-                device={device}
-                fragmentWGSL={wgslFragmentUniform}
-              />
-            </div>
-          </section>
-
-          {/* COMPUTE (buffer) */}
-          <section style={sectionStyle}>
-            <div>
-              <h2 style={h2}>2) Compute (buffer readback)</h2>
-              <p style={hint}>
-                Writes <code>out[i] = i*i</code> into a storage buffer; we read
-                back the first 64 values.
-              </p>
-              <textarea
-                spellCheck={false}
-                value={wgslCompute}
-                onChange={(e) => setWgslCompute(e.target.value)}
-                style={TA}
-              />
-              <div
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  flexWrap: "wrap",
-                  marginTop: 8,
-                }}
-              >
-                <label>
-                  N:
-                  <input
-                    type="number"
-                    value={n}
-                    min={1}
-                    onChange={(e) => setN(parseInt(e.target.value || "1", 10))}
-                    style={IN}
-                  />
-                </label>
-                <label>
-                  Workgroup size (x):
-                  <input
-                    type="number"
-                    value={wgSize}
-                    min={1}
-                    onChange={(e) =>
-                      setWgSize(parseInt(e.target.value || "1", 10))
-                    }
-                    style={IN}
-                  />
-                </label>
-                <button
-                  onClick={async () => {
-                    setOut([]);
-                    setLog("");
-                    try {
-                      const paramsBytes = 16;
-                      const params = new Uint32Array([n, 0, 0, 0]);
-                      const paramsBuf = makeBuffer(
-                        device,
-                        paramsBytes,
-                        GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-                      );
-                      device.queue.writeBuffer(paramsBuf, 0, params);
-
-                      const outBytes = align(n * 4);
-                      const outBuf = makeBuffer(
-                        device,
-                        outBytes,
-                        GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-                      );
-
-                      const job = new ComputeJob(device, wgslCompute, "main");
-                      await job.buildPipeline();
-                      const bg = job.createBindGroup([
-                        { kind: "buffer", buffer: paramsBuf, index: 0 },
-                        { kind: "buffer", buffer: outBuf, index: 1 },
-                      ]);
-
-                      const workgroups = Math.ceil(n / wgSize);
-                      job.run(bg, { x: workgroups });
-
-                      const data = await job.readBuffer(outBuf, outBytes);
-                      const view = new Uint32Array(data);
-                      setOut(Array.from(view.slice(0, Math.min(64, n))));
-                      append(
-                        `Compute OK — N=${n}, dispatched ${workgroups} groups.`,
-                      );
-                    } catch (e: unknown) {
-                      append(
-                        `Compute error: ${e instanceof Error ? e.message : String(e)}`,
-                      );
-                    }
-                  }}
-                  style={BTN}
-                >
-                  Run Compute
-                </button>
-              </div>
-
-              <div style={{ marginTop: 8 }}>
-                <label style={label}>Output (first 64)</label>
-                <pre style={PRE}>{JSON.stringify(out)}</pre>
-              </div>
-              <div>
-                <label style={label}>Log</label>
-                <pre style={PRE}>{log}</pre>
-              </div>
-            </div>
-          </section>
-
-          {/* COMPUTE → TEXTURE → FRAGMENT */}
-          <section style={sectionStyle}>
-            <div>
-              <h2 style={h2}>3) Compute → Texture → Fragment</h2>
-              <p style={hint}>
-                Compute writes a checker pattern into a <code>rgba8unorm</code>{" "}
-                storage texture. Fragment samples that texture.
-              </p>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 12,
-                }}
-              >
-                <div>
-                  <label style={label}>Compute WGSL (writes texture)</label>
-                  <textarea
-                    spellCheck={false}
-                    value={wgslComputeToTex}
-                    onChange={(e) => setWgslComputeToTex(e.target.value)}
-                    style={TA}
-                  />
-                </div>
-                <div>
-                  <label style={label}>Fragment WGSL (samples texture)</label>
-                  <textarea
-                    spellCheck={false}
-                    value={wgslFragmentTex}
-                    onChange={(e) => setWgslFragmentTex(e.target.value)}
-                    style={TA}
-                  />
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  marginTop: 8,
-                  flexWrap: "wrap",
-                }}
-              >
-                <button
-                  onClick={async () => {
-                    // Create / refresh the storage texture sized to the canvas display size
-                    const canvas = texCanvasRef.current!;
-                    const job =
-                      texRenderRef.current ?? new RenderJob(device, canvas);
-                    texRenderRef.current = job;
-
-                    job.setFragment(wgslFragmentTex);
-                    job.buildPipeline();
-
-                    const { width, height } = resizeCanvasToDisplay(canvas);
-                    // (Re)create storage texture if size changed
-                    if (
-                      !storageTexRef.current ||
-                      storageTexRef.current.width !== width ||
-                      storageTexRef.current.height !== height
-                    ) {
-                      storageTexRef.current?.destroy();
-                      storageTexRef.current = device.createTexture({
-                        size: { width, height },
-                        format: "rgba8unorm",
-                        usage:
-                          GPUTextureUsage.STORAGE_BINDING |
-                          GPUTextureUsage.TEXTURE_BINDING |
-                          GPUTextureUsage.COPY_SRC,
-                      });
-                      texViewRef.current = storageTexRef.current.createView();
-                      texSamplerRef.current = device.createSampler({
-                        magFilter: "nearest",
-                        minFilter: "nearest",
-                      });
-                    }
-
-                    // Run compute into the storage texture
-                    const comp = new ComputeJob(
-                      device,
-                      wgslComputeToTex,
-                      "main",
-                    );
-                    await comp.buildPipeline();
-                    const bgCompute = comp.createBindGroup([
-                      {
-                        kind: "storage-texture",
-                        view: texViewRef.current!,
-                        index: 0,
-                      },
-                    ]);
-                    const wgX = Math.ceil(width / 8);
-                    const wgY = Math.ceil(height / 8);
-                    comp.run(bgCompute, { x: wgX, y: wgY });
-
-                    // Bind that texture+sampler for the fragment pass and render one frame
-                    job.createBindGroup([
-                      { binding: 0, resource: texViewRef.current! },
-                      { binding: 1, resource: texSamplerRef.current! },
-                    ]);
-                    job.renderFrame();
-                  }}
-                  style={BTN}
-                >
-                  Run Compute → Update Texture
-                </button>
-              </div>
-
-              <canvas
-                ref={texCanvasRef}
-                style={{
-                  width: "100%",
-                  height: 420,
-                  display: "block",
-                  borderRadius: 8,
-                  border: "1px solid #ccc",
-                  marginTop: 8,
-                }}
-              />
-            </div>
-          </section>
+      {/* FRAGMENT (uniforms) */}
+      <section style={sectionStyle}>
+        <div>
+          <h2 style={h2}>1) Fragment (uniforms)</h2>
+          <p style={hint}>
+            Uniforms: <code>U.time.x</code> (seconds), <code>U.time.yz</code>{" "}
+            (mouse px), <code>U.res.xy</code> (width/height px). Entry:{" "}
+            <code>fmain</code>.
+          </p>
+          <textarea
+            spellCheck={false}
+            value={wgslFragmentUniform}
+            onChange={(e) => setWgslFragmentUniform(e.target.value)}
+            style={TA}
+          />
+          <GpuCanvasUniform
+            device={device}
+            fragmentWGSL={wgslFragmentUniform}
+          />
         </div>
-      )}
-    </GpuGate>
+      </section>
+
+      {/* COMPUTE (buffer) */}
+      <section style={sectionStyle}>
+        <div>
+          <h2 style={h2}>2) Compute (buffer readback)</h2>
+          <p style={hint}>
+            Writes <code>out[i] = i*i</code> into a storage buffer; we read back
+            the first 64 values.
+          </p>
+          <textarea
+            spellCheck={false}
+            value={wgslCompute}
+            onChange={(e) => setWgslCompute(e.target.value)}
+            style={TA}
+          />
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              flexWrap: "wrap",
+              marginTop: 8,
+            }}
+          >
+            <label>
+              N:
+              <input
+                type="number"
+                value={n}
+                min={1}
+                onChange={(e) => setN(parseInt(e.target.value || "1", 10))}
+                style={IN}
+              />
+            </label>
+            <label>
+              Workgroup size (x):
+              <input
+                type="number"
+                value={wgSize}
+                min={1}
+                onChange={(e) => setWgSize(parseInt(e.target.value || "1", 10))}
+                style={IN}
+              />
+            </label>
+            <button
+              onClick={async () => {
+                setOut([]);
+                setLog("");
+                try {
+                  const paramsBytes = 16;
+                  const params = new Uint32Array([n, 0, 0, 0]);
+                  const paramsBuf = makeBuffer(
+                    device,
+                    paramsBytes,
+                    GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+                  );
+                  device.queue.writeBuffer(paramsBuf, 0, params);
+
+                  const outBytes = align(n * 4);
+                  const outBuf = makeBuffer(
+                    device,
+                    outBytes,
+                    GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+                  );
+
+                  const job = new ComputeJob(device, wgslCompute, "main");
+                  await job.buildPipeline();
+                  const bg = job.createBindGroup([
+                    { kind: "buffer", buffer: paramsBuf, index: 0 },
+                    { kind: "buffer", buffer: outBuf, index: 1 },
+                  ]);
+
+                  const workgroups = Math.ceil(n / wgSize);
+                  job.run(bg, { x: workgroups });
+
+                  const data = await job.readBuffer(outBuf, outBytes);
+                  const view = new Uint32Array(data);
+                  setOut(Array.from(view.slice(0, Math.min(64, n))));
+                  append(
+                    `Compute OK — N=${n}, dispatched ${workgroups} groups.`,
+                  );
+                } catch (e: unknown) {
+                  append(
+                    `Compute error: ${e instanceof Error ? e.message : String(e)}`,
+                  );
+                }
+              }}
+              style={BTN}
+            >
+              Run Compute
+            </button>
+          </div>
+
+          <div style={{ marginTop: 8 }}>
+            <label style={label}>Output (first 64)</label>
+            <pre style={PRE}>{JSON.stringify(out)}</pre>
+          </div>
+          <div>
+            <label style={label}>Log</label>
+            <pre style={PRE}>{log}</pre>
+          </div>
+        </div>
+      </section>
+
+      {/* COMPUTE → TEXTURE → FRAGMENT */}
+      <section style={sectionStyle}>
+        <div>
+          <h2 style={h2}>3) Compute → Texture → Fragment</h2>
+          <p style={hint}>
+            Compute writes a checker pattern into a <code>rgba8unorm</code>{" "}
+            storage texture. Fragment samples that texture.
+          </p>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 12,
+            }}
+          >
+            <div>
+              <label style={label}>Compute WGSL (writes texture)</label>
+              <textarea
+                spellCheck={false}
+                value={wgslComputeToTex}
+                onChange={(e) => setWgslComputeToTex(e.target.value)}
+                style={TA}
+              />
+            </div>
+            <div>
+              <label style={label}>Fragment WGSL (samples texture)</label>
+              <textarea
+                spellCheck={false}
+                value={wgslFragmentTex}
+                onChange={(e) => setWgslFragmentTex(e.target.value)}
+                style={TA}
+              />
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              marginTop: 8,
+              flexWrap: "wrap",
+            }}
+          >
+            <button
+              onClick={async () => {
+                // Create / refresh the storage texture sized to the canvas display size
+                const canvas = texCanvasRef.current!;
+                const job =
+                  texRenderRef.current ?? new RenderJob(device, canvas);
+                texRenderRef.current = job;
+
+                job.setFragment(wgslFragmentTex);
+                job.buildPipeline();
+
+                const { width, height } = resizeCanvasToDisplay(canvas);
+                // (Re)create storage texture if size changed
+                if (
+                  !storageTexRef.current ||
+                  storageTexRef.current.width !== width ||
+                  storageTexRef.current.height !== height
+                ) {
+                  storageTexRef.current?.destroy();
+                  storageTexRef.current = device.createTexture({
+                    size: { width, height },
+                    format: "rgba8unorm",
+                    usage:
+                      GPUTextureUsage.STORAGE_BINDING |
+                      GPUTextureUsage.TEXTURE_BINDING |
+                      GPUTextureUsage.COPY_SRC,
+                  });
+                  texViewRef.current = storageTexRef.current.createView();
+                  texSamplerRef.current = device.createSampler({
+                    magFilter: "nearest",
+                    minFilter: "nearest",
+                  });
+                }
+
+                // Run compute into the storage texture
+                const comp = new ComputeJob(device, wgslComputeToTex, "main");
+                await comp.buildPipeline();
+                const bgCompute = comp.createBindGroup([
+                  {
+                    kind: "storage-texture",
+                    view: texViewRef.current!,
+                    index: 0,
+                  },
+                ]);
+                const wgX = Math.ceil(width / 8);
+                const wgY = Math.ceil(height / 8);
+                comp.run(bgCompute, { x: wgX, y: wgY });
+
+                // Bind that texture+sampler for the fragment pass and render one frame
+                job.createBindGroup([
+                  { binding: 0, resource: texViewRef.current! },
+                  { binding: 1, resource: texSamplerRef.current! },
+                ]);
+                job.renderFrame();
+              }}
+              style={BTN}
+            >
+              Run Compute → Update Texture
+            </button>
+          </div>
+
+          <canvas
+            ref={texCanvasRef}
+            style={{
+              width: "100%",
+              height: 420,
+              display: "block",
+              borderRadius: 8,
+              border: "1px solid #ccc",
+              marginTop: 8,
+            }}
+          />
+        </div>
+      </section>
+    </div>
   );
 }
 

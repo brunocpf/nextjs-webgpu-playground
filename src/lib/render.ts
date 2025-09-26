@@ -1,5 +1,3 @@
-// Minimal, generic render helper. You provide the fragment WGSL and (optionally) your own bind group.
-
 export function createCanvasContext(
   device: GPUDevice,
   canvas: HTMLCanvasElement,

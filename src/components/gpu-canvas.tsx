@@ -5,11 +5,11 @@ import { useEffect, useRef } from "react";
 import { RenderJob, resizeCanvasToDisplay } from "@/lib/render";
 
 export function GpuCanvasUniform({
-  device,
   fragmentWGSL,
+  device,
 }: {
-  device: GPUDevice;
   fragmentWGSL: string;
+  device: GPUDevice;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const jobRef = useRef<RenderJob | null>(null);
@@ -34,7 +34,7 @@ export function GpuCanvasUniform({
     jobRef.current = job;
 
     const uniformBuf = ensureUniformBuffer(device);
-    const bind = job.createBindGroup([
+    /*const bind = */ job.createBindGroup([
       { binding: 0, resource: { buffer: uniformBuf } },
     ]);
 
