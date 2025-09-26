@@ -12,7 +12,7 @@ export default async function ExamplePage() {
     "utf-8",
   );
   const compTexWgsl = await promises.readFile(
-    process.cwd() + "/src/shaders/compute_to_tex.wgsl",
+    process.cwd() + "/src/shaders/slime.wgsl",
     "utf-8",
   );
   const fragTexWgsl = await promises.readFile(

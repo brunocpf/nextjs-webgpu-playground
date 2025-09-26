@@ -48,7 +48,7 @@ export class RenderJob {
     this.vertModule = device.createShaderModule({ code: FULLSCREEN_TRI_VERT });
   }
 
-  setFragment(wgsl: string, entryPoint = "fmain") {
+  setFragment(wgsl: string) {
     this.fragModule = this.device.createShaderModule({ code: wgsl });
     this.pipeline = null;
     this.bindGroup = null;

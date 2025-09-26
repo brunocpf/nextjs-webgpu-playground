@@ -1,29 +1,27 @@
 export type WebGpuContext = {
   adapter: GPUAdapter;
   device: GPUDevice;
-  supportedFeatures: ReadonlySet<GPUFeatureName>;
+  supportedFeatures: GPUSupportedFeatures;
 };
 
 export async function initWebGPU(
   requestedFeatures: GPUFeatureName[] = [],
 ): Promise<WebGpuContext> {
   if (!("gpu" in navigator)) {
-    throw new Error(
-      "WebGPU not supported in this browser. Try Chrome/Edge ≥ 113 or Safari TP with WebGPU.",
-    );
+    throw new Error("WebGPU not supported in this browser.");
   }
 
   const adapter = await navigator.gpu.requestAdapter();
   if (!adapter) throw new Error("No GPU adapter found.");
 
   const supported = adapter.features;
-  const features = requestedFeatures.filter((f) => supported.has(f));
+  const features = requestedFeatures.filter(supported.has);
 
   const device = await adapter.requestDevice({ requiredFeatures: features });
   return {
     adapter,
     device,
-    supportedFeatures: adapter.features as ReadonlySet<GPUFeatureName>,
+    supportedFeatures: adapter.features,
   };
 }
 

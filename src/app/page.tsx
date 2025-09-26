@@ -6,14 +6,14 @@ export default function Home() {
       <header></header>
 
       <main>
-        <h1>Welcome to the WebGPU Playground</h1>
+        <h1 className="text-4xl font-bold">Welcome to the WebGPU Playground</h1>
         <p>Explore the power of GPU computing in your browser.</p>
 
-        <ul>
-          <li>
+        <ul className="mt-4 list-inside list-disc space-y-2">
+          <li className="hover:underline">
             <Link href="/example">Example Compute Shader</Link>
           </li>
-          <li>
+          <li className="hover:underline">
             <Link href="/custom">Custom Compute Shader</Link>
           </li>
         </ul>

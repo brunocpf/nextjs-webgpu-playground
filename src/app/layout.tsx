@@ -1,3 +1,5 @@
+import "./globals.css";
+
 export const metadata = { title: "WebGPU Compute Playground" };
 
 export default function RootLayout({
@@ -7,7 +9,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body style={{ fontFamily: "sans-serif" }}>{children}</body>
+      <body className="font-sans">{children}</body>
     </html>
   );
 }

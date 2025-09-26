@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { initWebGPU } from "@/lib/webgpu";
 
+// TODO: change this HOC to a hook/context provider
 export function GpuGate({
   children,
   onReady,
@@ -38,6 +39,6 @@ export function GpuGate({
         <b>WebGPU init failed:</b> {error}
       </div>
     );
-  if (!device) return <div style={{ padding: 16 }}>Initializing WebGPU…</div>;
+  if (!device) return <div className="p-4">Initializing WebGPU…</div>;
   return <>{children({ device })}</>;
 }

@@ -41,7 +41,7 @@ export function GpuCanvasUniform({
     const onMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
       mouse.current.x = e.clientX - rect.left;
-      mouse.current.y = rect.height - (e.clientY - rect.top);
+      mouse.current.y = e.clientY - rect.top;
     };
     window.addEventListener("mousemove", onMove);
 

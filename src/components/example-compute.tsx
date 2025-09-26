@@ -6,6 +6,7 @@ import { GpuGate } from "@/components/gpu-gate";
 import { ComputeJob } from "@/lib/compute";
 import { RenderJob, resizeCanvasToDisplay } from "@/lib/render";
 import { align, makeBuffer } from "@/lib/webgpu";
+
 import { GpuCanvasUniform } from "./gpu-canvas";
 
 export interface PlaygroundProps {
@@ -170,7 +171,9 @@ export default function Playground({
                         `Compute OK — N=${n}, dispatched ${workgroups} groups.`,
                       );
                     } catch (e: unknown) {
-                      append(`Compute error: ${e instanceof Error ? e.message : String(e)}`);
+                      append(
+                        `Compute error: ${e instanceof Error ? e.message : String(e)}`,
+                      );
                     }
                   }}
                   style={BTN}
