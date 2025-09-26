@@ -3,8 +3,8 @@
 import { useRef, useState } from "react";
 
 import { ComputeJob } from "@/lib/compute";
-import { RenderJob, resizeCanvasToDisplay } from "@/lib/render";
-import { align } from "@/lib/utils";
+import { RenderJob } from "@/lib/render";
+import { align, resizeCanvasToDisplay } from "@/lib/utils";
 import { makeBuffer } from "@/lib/webgpu";
 
 import { GpuCanvasUniform } from "./gpu-canvas";

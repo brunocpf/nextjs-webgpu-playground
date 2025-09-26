@@ -4,7 +4,7 @@ import { ComputeShaderExample } from "@/components/compute-shader-example";
 
 export default async function ComputeShaderPage() {
   const shader = await promises.readFile(
-    process.cwd() + "/src/shaders/compute-example.wgsl",
+    process.cwd() + "/src/shaders/compute_example.wgsl",
     "utf-8",
   );
 

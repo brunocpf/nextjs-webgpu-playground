@@ -10,6 +10,11 @@ export default function Home() {
               Compute Shader Example
             </Link>
           </li>
+          <li className="hover:underline">
+            <Link href="/render-shader" className="text-blue-500">
+              Render Shader Example
+            </Link>
+          </li>
         </ul>
       </nav>
     </section>

@@ -9,15 +9,16 @@ export type ComputeBinding =
 export type DispatchDims = { x: number; y?: number; z?: number };
 
 export class ComputeJob {
-  private device: GPUDevice;
   private module: GPUShaderModule;
-  private entryPoint: string;
   private pipeline?: GPUComputePipeline;
+  private bindGroup?: GPUBindGroup;
 
-  constructor(device: GPUDevice, wgsl: string, entryPoint = "main") {
-    this.device = device;
+  constructor(
+    private device: GPUDevice,
+    wgsl: string,
+    private entryPoint = "main",
+  ) {
     this.module = device.createShaderModule({ code: wgsl });
-    this.entryPoint = entryPoint;
   }
 
   async buildPipeline() {
@@ -48,7 +49,9 @@ export class ComputeJob {
       }
     });
 
-    return this.device.createBindGroup({ layout, entries });
+    this.bindGroup = this.device.createBindGroup({ layout, entries });
+
+    return this.bindGroup;
   }
 
   run(bindGroup: GPUBindGroup, dispatch: DispatchDims) {
