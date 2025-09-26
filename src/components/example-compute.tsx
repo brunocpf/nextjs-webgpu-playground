@@ -4,48 +4,26 @@ import { useRef, useState } from "react";
 
 import { ComputeJob } from "@/lib/compute";
 import { RenderJob } from "@/lib/render";
-import { align, resizeCanvasToDisplay } from "@/lib/utils";
-import { makeBuffer } from "@/lib/webgpu";
-
-import { GpuCanvasUniform } from "./gpu-canvas";
-import { useGpu } from "./gpu-provider";
+import { resizeCanvasToDisplay } from "@/lib/utils";
+import { useGpu } from "@/providers/gpu-provider";
 
 export interface PlaygroundProps {
-  compWgsl?: string;
-  fragUniWgsl?: string;
   compTexWgsl?: string;
   fragTexWgsl?: string;
 }
 
 export default function Playground({
-  compWgsl,
-  fragUniWgsl,
   compTexWgsl,
   fragTexWgsl,
 }: PlaygroundProps) {
   const { device } = useGpu();
 
-  // State for the three panels
-  const [wgslCompute, setWgslCompute] = useState<string>(
-    compWgsl ?? DEFAULT_COMP,
-  );
-  const [wgslFragmentUniform, setWgslFragmentUniform] = useState<string>(
-    fragUniWgsl ?? DEFAULT_FRAG_UNI,
-  );
   const [wgslComputeToTex, setWgslComputeToTex] = useState<string>(
     compTexWgsl ?? DEFAULT_COMP_TEX,
   );
   const [wgslFragmentTex, setWgslFragmentTex] = useState<string>(
     fragTexWgsl ?? DEFAULT_FRAG_TEX,
   );
-
-  const [n, setN] = useState(256);
-  const [wgSize, setWgSize] = useState(64);
-  const [out, setOut] = useState<number[]>([]);
-  const [log, setLog] = useState<string>("");
-  function append(msg: string) {
-    setLog((l) => l + msg + "\n");
-  }
 
   // Compute→Texture panel refs
   const texCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -69,130 +47,6 @@ export default function Playground({
       }}
     >
       <h1 style={{ margin: 0 }}>WebGPU Compute + Fragment + Compute→Texture</h1>
-
-      {/* FRAGMENT (uniforms) */}
-      <section style={sectionStyle}>
-        <div>
-          <h2 style={h2}>1) Fragment (uniforms)</h2>
-          <p style={hint}>
-            Uniforms: <code>U.time.x</code> (seconds), <code>U.time.yz</code>{" "}
-            (mouse px), <code>U.res.xy</code> (width/height px). Entry:{" "}
-            <code>fmain</code>.
-          </p>
-          <textarea
-            spellCheck={false}
-            value={wgslFragmentUniform}
-            onChange={(e) => setWgslFragmentUniform(e.target.value)}
-            style={TA}
-          />
-          <GpuCanvasUniform
-            device={device}
-            fragmentWGSL={wgslFragmentUniform}
-          />
-        </div>
-      </section>
-
-      {/* COMPUTE (buffer) */}
-      <section style={sectionStyle}>
-        <div>
-          <h2 style={h2}>2) Compute (buffer readback)</h2>
-          <p style={hint}>
-            Writes <code>out[i] = i*i</code> into a storage buffer; we read back
-            the first 64 values.
-          </p>
-          <textarea
-            spellCheck={false}
-            value={wgslCompute}
-            onChange={(e) => setWgslCompute(e.target.value)}
-            style={TA}
-          />
-          <div
-            style={{
-              display: "flex",
-              gap: 12,
-              flexWrap: "wrap",
-              marginTop: 8,
-            }}
-          >
-            <label>
-              N:
-              <input
-                type="number"
-                value={n}
-                min={1}
-                onChange={(e) => setN(parseInt(e.target.value || "1", 10))}
-                style={IN}
-              />
-            </label>
-            <label>
-              Workgroup size (x):
-              <input
-                type="number"
-                value={wgSize}
-                min={1}
-                onChange={(e) => setWgSize(parseInt(e.target.value || "1", 10))}
-                style={IN}
-              />
-            </label>
-            <button
-              onClick={async () => {
-                setOut([]);
-                setLog("");
-                try {
-                  const paramsBytes = 16;
-                  const params = new Uint32Array([n, 0, 0, 0]);
-                  const paramsBuf = makeBuffer(
-                    device,
-                    paramsBytes,
-                    GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-                  );
-                  device.queue.writeBuffer(paramsBuf, 0, params);
-
-                  const outBytes = align(n * 4);
-                  const outBuf = makeBuffer(
-                    device,
-                    outBytes,
-                    GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-                  );
-
-                  const job = new ComputeJob(device, wgslCompute, "main");
-                  await job.buildPipeline();
-                  const bg = job.createBindGroup([
-                    { kind: "buffer", buffer: paramsBuf, index: 0 },
-                    { kind: "buffer", buffer: outBuf, index: 1 },
-                  ]);
-
-                  const workgroups = Math.ceil(n / wgSize);
-                  job.run(bg, { x: workgroups });
-
-                  const data = await job.readBuffer(outBuf, outBytes);
-                  const view = new Uint32Array(data);
-                  setOut(Array.from(view.slice(0, Math.min(64, n))));
-                  append(
-                    `Compute OK — N=${n}, dispatched ${workgroups} groups.`,
-                  );
-                } catch (e: unknown) {
-                  append(
-                    `Compute error: ${e instanceof Error ? e.message : String(e)}`,
-                  );
-                }
-              }}
-              style={BTN}
-            >
-              Run Compute
-            </button>
-          </div>
-
-          <div style={{ marginTop: 8 }}>
-            <label style={label}>Output (first 64)</label>
-            <pre style={PRE}>{JSON.stringify(out)}</pre>
-          </div>
-          <div>
-            <label style={label}>Log</label>
-            <pre style={PRE}>{log}</pre>
-          </div>
-        </div>
-      </section>
 
       {/* COMPUTE → TEXTURE → FRAGMENT */}
       <section style={sectionStyle}>
@@ -334,7 +188,6 @@ const TA: React.CSSProperties = {
   borderRadius: 8,
   whiteSpace: "pre",
 };
-const IN: React.CSSProperties = { marginLeft: 6, width: 120 };
 const BTN: React.CSSProperties = {
   padding: "8px 14px",
   borderRadius: 8,
@@ -342,38 +195,12 @@ const BTN: React.CSSProperties = {
   background: "#fafafa",
   cursor: "pointer",
 };
-const PRE: React.CSSProperties = {
-  padding: 12,
-  border: "1px solid #eee",
-  borderRadius: 8,
-  minHeight: 60,
-  background: "#fafafa",
-  overflowX: "auto",
-};
 const label: React.CSSProperties = {
   display: "block",
   fontWeight: 600,
   marginBottom: 6,
 };
 
-const DEFAULT_COMP = `struct Params { n: u32, _0:u32, _1:u32, _2:u32, };
-@group(0) @binding(0) var<uniform> params: Params;
-@group(0) @binding(1) var<storage, read_write> outBuf: array<u32>;
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-  let i = gid.x;
-  if (i < params.n) { outBuf[i] = i * i; }
-}`;
-const DEFAULT_FRAG_UNI = `struct Uniforms { time: vec4<f32>; res: vec4<f32>; };
-@group(0) @binding(0) var<uniform> U : Uniforms;
-struct FSIn { @location(0) uv: vec2<f32> };
-@fragment
-fn fmain(in: FSIn) -> @location(0) vec4<f32> {
-  let t = U.time.x;
-  let p = in.uv * 2.0 - vec2<f32>(1.0);
-  let v = 0.5 + 0.5 * sin(6.2831*(p.x + p.y) + t);
-  return vec4<f32>(v, 0.3 + 0.7*v, 0.6 + 0.4*v, 1.0);
-}`;
 const DEFAULT_COMP_TEX = `@group(0) @binding(0) var outTex : texture_storage_2d<rgba8unorm, write>;
 @compute @workgroup_size(8,8,1)
 fn main(@builtin(global_invocation_id) gid : vec3<u32>) {

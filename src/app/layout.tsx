@@ -1,4 +1,5 @@
-import { GpuProvider } from "@/components/gpu-provider";
+import { GpuProvider } from "@/providers/gpu-provider";
+import { ThemeProvider } from "@/providers/theme-provider";
 
 import "./globals.css";
 
@@ -10,20 +11,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <GpuProvider>
-        <body className="font-sans">
-          <header />
-          <main className="m-3 rounded border border-gray-300 p-3">
-            <h1 className="text-4xl font-bold">
-              Welcome to the WebGPU Playground
-            </h1>
-            <p>Explore the power of GPU computing in your browser.</p>
-            {children}
-          </main>
-          <footer />
-        </body>
-      </GpuProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className="font-sans">
+        <ThemeProvider attribute="class" enableSystem={false}>
+          <GpuProvider>
+            <header />
+            <main className="m-3 rounded border border-gray-300 p-3">
+              <h1 className="text-4xl font-bold">
+                Welcome to the WebGPU Playground
+              </h1>
+              <p>Explore the power of GPU computing in your browser.</p>
+              {children}
+            </main>
+            <footer />
+          </GpuProvider>
+        </ThemeProvider>
+      </body>
     </html>
   );
 }

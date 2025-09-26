@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 
-import { useGpu } from "@/components/gpu-provider";
 import { ComputeJob } from "@/lib/compute";
 import { align } from "@/lib/utils";
+import { useGpu } from "@/providers/gpu-provider";
 
 export function ComputeShaderExample({ shader }: { shader: string }) {
   const { device, error } = useGpu();

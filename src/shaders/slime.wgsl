@@ -1,3 +1,7 @@
+// WIP: Slime simulation shader
+// Based on Sebastian Lague's slime simulation
+// https://www.youtube.com/watch?v=X-iSQQgOd1A
+
 @group(0) @binding(0) var outTex : texture_storage_2d<rgba8unorm, write>;
 
 struct Agent {

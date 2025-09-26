@@ -6,11 +6,6 @@ struct Uniforms {
 @group(0) @binding(0)
 var<uniform> U: Uniforms;
 
-
-fn sdfCircle(p: vec2f, r: f32) -> f32 {
-    return length(p) - r;
-}
-
 @fragment
 fn fmain(@builtin(position) pos: vec4f) -> @location(0) vec4f {
     let uv = pos.xy / U.res.xy;
