@@ -13,9 +13,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans">
-        <ThemeProvider attribute="class" enableSystem={false}>
+        <ThemeProvider enableSystem={false}>
           <GpuProvider>
-            <header />
             <main className="m-3 rounded border border-gray-300 p-3">
               <h1 className="text-4xl font-bold">
                 Welcome to the WebGPU Playground
@@ -23,7 +22,6 @@ export default function RootLayout({
               <p>Explore the power of GPU computing in your browser.</p>
               {children}
             </main>
-            <footer />
           </GpuProvider>
         </ThemeProvider>
       </body>
