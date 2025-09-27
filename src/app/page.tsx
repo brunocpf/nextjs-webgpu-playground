@@ -5,13 +5,19 @@ export default function Home() {
     <section>
       <nav className="mt-4">
         <ul className="mt-4 list-inside space-y-2">
-          <li className="hover:underline">
-            <Link href="/compute-shader" className="text-blue-500">
+          <li>
+            <Link
+              href="/compute-shader"
+              className="text-blue-500 hover:underline"
+            >
               Compute Shader Example
             </Link>
           </li>
-          <li className="hover:underline">
-            <Link href="/render-shader" className="text-blue-500">
+          <li>
+            <Link
+              href="/render-shader"
+              className="text-blue-500 hover:underline"
+            >
               Render Shader Example
             </Link>
           </li>
