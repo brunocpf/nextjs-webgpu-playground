@@ -1,25 +1,25 @@
 "use client";
 
 import { createContext, use, useEffect, useState } from "react";
-
-import { initWebGPU } from "@/lib/webgpu";
+import tgpu, { TgpuRoot } from "typegpu";
 
 export const GpuContext = createContext<{
+  root?: TgpuRoot;
   device?: GPUDevice;
   error?: string;
 }>({});
 
 export function GpuProvider({ children }: React.PropsWithChildren) {
-  const [device, setDevice] = useState<GPUDevice>();
+  const [root, setRoot] = useState<TgpuRoot>();
   const [error, setError] = useState<string>();
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const ctx = await initWebGPU(["shader-f16"]);
+        const root = await tgpu.init();
         if (!cancelled) {
-          setDevice(ctx.device);
+          setRoot(root);
         }
       } catch (e: unknown) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
@@ -31,7 +31,7 @@ export function GpuProvider({ children }: React.PropsWithChildren) {
   }, []);
 
   return (
-    <GpuContext.Provider value={{ device, error }}>
+    <GpuContext.Provider value={{ root, device: root?.device, error }}>
       {children}
     </GpuContext.Provider>
   );
