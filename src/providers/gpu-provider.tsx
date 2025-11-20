@@ -5,7 +5,6 @@ import tgpu, { TgpuRoot } from "typegpu";
 
 export const GpuContext = createContext<{
   root?: TgpuRoot;
-  device?: GPUDevice;
   error?: string;
 }>({});
 
@@ -30,8 +29,14 @@ export function GpuProvider({ children }: React.PropsWithChildren) {
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      root?.destroy();
+    };
+  }, [root]);
+
   return (
-    <GpuContext.Provider value={{ root, device: root?.device, error }}>
+    <GpuContext.Provider value={{ root, error }}>
       {children}
     </GpuContext.Provider>
   );

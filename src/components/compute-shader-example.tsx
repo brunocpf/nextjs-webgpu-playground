@@ -7,7 +7,8 @@ import { align } from "@/lib/utils";
 import { useGpu } from "@/providers/gpu-provider";
 
 export function ComputeShaderExample({ shader }: { shader: string }) {
-  const { device, error } = useGpu();
+  const { root, error } = useGpu();
+  const device = root?.device;
 
   const [shaderText, setShaderText] = useState(shader);
   const [n, setN] = useState(256);

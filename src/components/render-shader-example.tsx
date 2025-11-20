@@ -7,7 +7,8 @@ import { resizeCanvasToDisplay } from "@/lib/utils";
 import { useGpu } from "@/providers/gpu-provider";
 
 export function RenderShaderExample({ shader }: { shader: string }) {
-  const { device, error } = useGpu();
+  const { root, error } = useGpu();
+  const device = root?.device;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const jobRef = useRef<RenderJob>(null);
   const animFrameRef = useRef<number>(null);
