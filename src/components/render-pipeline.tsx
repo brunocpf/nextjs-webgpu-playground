@@ -1,32 +1,56 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { TgpuFragmentFn, TgpuRenderPipeline, TgpuVertexFn } from "typegpu";
+import {
+  TgpuAccessor,
+  TgpuFragmentFn,
+  TgpuRenderPipeline,
+  TgpuUniform,
+  TgpuVertexFn,
+  WithBinding,
+} from "typegpu";
 import * as d from "typegpu/data";
 
 import { useGpu } from "@/providers/gpu-provider";
 
-export type RenderPipelineProps = {
-  vertexShader: TgpuVertexFn<
-    Record<never, never>,
-    {
-      uv: d.Vec2f;
-    }
-  >;
+export type Binding<T extends d.AnyWgslData> = [
+  TgpuAccessor<T>,
+  TgpuUniform<T> | undefined,
+];
 
-  fragmentShader: TgpuFragmentFn<
-    {
-      uv: d.Vec2f;
-    },
-    d.Vec4f
-  >;
-};
+export type RenderPipelineProps<TBindingData extends Binding<d.AnyWgslData>[]> =
+  {
+    vertexShader: TgpuVertexFn<
+      Record<never, never>,
+      {
+        uv: d.Vec2f;
+      }
+    >;
 
-export function RenderPipeline({
+    fragmentShader: TgpuFragmentFn<
+      {
+        uv: d.Vec2f;
+      },
+      d.Vec4f
+    >;
+
+    bindings?: TBindingData;
+
+    onFrame?: (elapsedTime: number) => void;
+
+    canvasRef?: React.RefObject<HTMLCanvasElement | null>;
+  };
+
+export function RenderPipeline<
+  TBindingData extends Binding<d.AnyWgslData>[] = [],
+>({
   vertexShader,
   fragmentShader,
+  bindings,
+  onFrame,
+  canvasRef: externalCanvasRef,
   ...rest
-}: RenderPipelineProps &
+}: RenderPipelineProps<TBindingData> &
   React.DetailedHTMLProps<
     React.CanvasHTMLAttributes<HTMLCanvasElement>,
     HTMLCanvasElement
@@ -70,15 +94,50 @@ export function RenderPipeline({
   useEffect(() => {
     if (!root) return;
 
-    pipelineRef.current = root["~unstable"]
-      .withVertex(vertexShader, {})
-      .withFragment(fragmentShader, {
-        format: navigator.gpu.getPreferredCanvasFormat(),
-      })
-      .createPipeline();
+    let boundRoot: WithBinding = root["~unstable"];
 
-    redraw();
-  }, [fragmentShader, redraw, root, vertexShader]);
+    if (bindings) {
+      for (const [accessor, uniform] of bindings) {
+        if (!uniform) continue;
+
+        boundRoot = boundRoot.with(accessor, uniform);
+      }
+    }
+
+    try {
+      pipelineRef.current = boundRoot
+        .withVertex(vertexShader, {})
+        .withFragment(fragmentShader, {
+          format: navigator.gpu.getPreferredCanvasFormat(),
+        })
+        .createPipeline();
+    } catch (error) {
+      console.error("Error creating pipeline:", error);
+    }
+  }, [fragmentShader, redraw, root, vertexShader, bindings]);
+
+  // Animation loop
+  useEffect(() => {
+    const startTime = performance.now();
+
+    let animationFrameId: number;
+
+    const render = () => {
+      const currentTime = performance.now();
+      const elapsedTime = (currentTime - startTime) / 1000;
+      onFrame?.(elapsedTime);
+
+      redraw();
+
+      animationFrameId = requestAnimationFrame(render);
+    };
+
+    animationFrameId = requestAnimationFrame(render);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [onFrame, redraw]);
 
   if (error) {
     return (
@@ -93,7 +152,12 @@ export function RenderPipeline({
   return (
     <canvas
       {...rest}
-      ref={canvasRef}
+      ref={(el) => {
+        canvasRef.current = el;
+        if (externalCanvasRef) {
+          externalCanvasRef.current = el;
+        }
+      }}
       onClick={(e) => {
         rest.onClick?.(e);
         redraw();
